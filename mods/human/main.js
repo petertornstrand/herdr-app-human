@@ -230,7 +230,8 @@ export default class Human extends View {
     const unremoved = this.items.filter((i) => !this.state.removed.includes(i.id)).reverse(); // newest first
     const visible = this.showAll ? unremoved : unremoved.filter(mine);
     const hidden = unremoved.filter((i) => !this.state.done[i.id] && !mine(i)).length;
-    const open = visible.filter((i) => !this.state.done[i.id]);
+    // What an agent is waiting for comes first; the sort is stable, so the rest stays newest first.
+    const open = visible.filter((i) => !this.state.done[i.id]).sort((a, b) => Number(b.wait) - Number(a.wait));
     const done = visible.filter((i) => this.state.done[i.id]);
 
     const button = (id, label, onClick, strong) =>
@@ -269,21 +270,21 @@ export default class Human extends View {
             .whitespace_normal().hover((s) => s.border_color(t.accent)).on_mouse_down("left", stop).on_click((_e, cx) => this.copy(item, cx)).child(item.cmd)))
         .when(item.wait && !checked, (el) =>
           el.child(div().ml(30).self_start().px(8).h(20).rounded(10).flex().items_center().text_size(11).font_semibold()
-            .border(1).border_color(t.blocked).text_color(t.blocked).child("● Agenten väntar på dig")))
+            .border(1).border_color(t.blocked).text_color(t.blocked).child("● Agent is waiting for you")))
         .when(Boolean(item.retry) && !checked, (el) =>
-          el.child(div().ml(30).text_size(12).text_color(t.blocked).whitespace_normal().child(`Agenten kunde inte: ${item.retry}`)))
+          el.child(div().ml(30).text_size(12).text_color(t.blocked).whitespace_normal().child(`Agent could not: ${item.retry}`)))
         // Where it came from, and what you can do with it.
         .child(h_flex().ml(30).gap(2).items_center()
           .child(div().flex_1().min_w(0).text_size(12).text_color(t.dim).truncate().child([item.project, age].filter(Boolean).join(" · ")))
-          .child(link("copy", "Kopiera", (cx) => this.copy(item, cx)))
-          .when(canReject, (el) => el.child(link("rej", "Avvisa", (cx) => this.reject(item, cx))))
-          .child(link("rm", "Ta bort", (cx) => this.remove(item, cx))));
+          .child(link("copy", "Copy", (cx) => this.copy(item, cx)))
+          .when(canReject, (el) => el.child(link("rej", "Reject", (cx) => this.reject(item, cx))))
+          .child(link("rm", "Remove", (cx) => this.remove(item, cx))));
     };
 
     const section = (title) =>
       div().px(14).pt(6).pb(0).flex_none().text_size(11).font_semibold().text_color(t.dim).child(title.toUpperCase());
 
-    // "Alla spaces": the open items grouped by the space their terminal is in
+    // "All spaces": the open items grouped by the space their terminal is in
     // (the shown one first, then the others in space order), and those with no
     // known space last. Two spaces with the same name get their folder added.
     const grouped = (list) => {
@@ -307,7 +308,7 @@ export default class Human extends View {
         .sort((a, b) => order(a[0]) - order(b[0]))
         .flatMap(([key, items]) => {
           const space = all.find((s) => s.id === key);
-          const title = space ? `${label(space)}${key === current ? " (detta)" : ""}` : "Inget space";
+          const title = space ? `${label(space)}${key === current ? " (this one)" : ""}` : "No space";
           return [section(`${title} · ${items.length}`), ...items.map(row)];
         });
     };
@@ -315,13 +316,13 @@ export default class Human extends View {
     const header = h_flex().h(44).flex_none().px(14).items_center().gap(10).border_b(1).border_color(t.border)
       .child(div().text_size(15).font_semibold().text_color(t.foreground).child("Human"))
       .child(div().flex_1().min_w(0).truncate().text_size(12).text_color(open.length ? t.blocked : t.dim).child(this.loaded
-        ? `${open.length ? `${open.length} att göra${open.some((i) => i.wait) ? ` · ${open.filter((i) => i.wait).length} väntar på dig` : ""}` : "inget att göra"}${!this.showAll && hidden ? ` · ${hidden} i andra spaces` : ""}`
-        : "Laddar…"))
-      .child(button("scope", this.showAll ? "Alla spaces" : "Detta space", (cx) => {
+        ? `${open.length ? `${open.length} to do${open.some((i) => i.wait) ? ` · ${open.filter((i) => i.wait).length} waiting` : ""}` : "nothing to do"}${!this.showAll && hidden ? ` · ${hidden} in other spaces` : ""}`
+        : "Loading…"))
+      .child(button("scope", this.showAll ? "All spaces" : "This space", (cx) => {
         this.showAll = !this.showAll;
         cx.notify();
       }, this.showAll))
-      .when(done.length > 0, (el) => el.child(button("clear", "Rensa", (cx) => this.clearDone(cx))))
+      .when(done.length > 0, (el) => el.child(button("clear", "Clear", (cx) => this.clearDone(cx))))
       .when(Boolean(props()?.overlay), (el) =>
         el.child(div().id("close").flex_none().size(24).rounded(4).flex().items_center().justify_center().text_size(13).text_color(t.muted)
           .hover((s) => s.bg(t.hover).text_color(t.foreground)).on_mouse_down("left", stop)
@@ -331,11 +332,11 @@ export default class Human extends View {
     if (this.error) {
       body = div().p(12).text_size(12).text_color(t.ansi1).child(this.error);
     } else if (this.loaded && visible.length === 0) {
-      body = div().p(14).text_size(13).text_color(t.dim).child("Inget att göra. Instruktioner från agenter dyker upp här.");
+      body = div().p(14).text_size(13).text_color(t.dim).child("Nothing to do. Instructions from agents show up here.");
     } else {
       body = v_flex().id("human-list").flex_1().min_h(0).overflow_y_scrollbar().p(10).gap(8)
         .when(open.length > 0, (el) => el.children(this.showAll ? grouped(open) : open.map(row)))
-        .when(done.length > 0, (el) => el.child(section(`Klara (${done.length})`)).children(done.map(row)));
+        .when(done.length > 0, (el) => el.child(section(`Done (${done.length})`)).children(done.map(row)));
     }
 
     // A window has the width and height from mod.json; a pane fills its block.

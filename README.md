@@ -4,20 +4,21 @@ A [Herdr app](https://herdr.dev) mod that collects what your agents ask *you* to
 checklist. Agents register an instruction with `human-add`; you tick it off in a panel, copy
 its command with a click, or reject it so the agent tries to do it itself.
 
+![Herdr Human](preview.png)
+
+The screenshot uses made-up tasks.
+
 - One inbox for every space and tab. The header button narrows the list to the shown space.
 - Click an instruction (or its command) to copy the command, or the text if it has none.
-- Tick the box to check it off. Checked items move under *Klara* and can be cleared.
-- **Avvisa** sends the task back to the agent that created it (`hc send`). The agent is told
+- Tick the box to check it off. Checked items move under *Done* and can be cleared.
+- **Reject** sends the task back to the agent that created it (`hc send`). The agent is told
   to do it itself, and to register it again with `--retry '<why not>'` only if it can't.
   A retried item shows the agent's reason and has no reject button.
 - An agent that can't continue until you're done registers the item with `--wait`. The card
-  gets a red border and an "Agenten väntar på dig" pill, the header counts how many wait,
+  gets a red border and an "Agent is waiting for you" pill, the header counts how many wait,
   and checking the item off sends `Done by the human: ...` to the agent's terminal, so it
   can end its turn and wake up when you're done. Without `--wait` the agent gets no signal.
 - Checked items fold their command away.
-
-The panel text is in Swedish (`Avvisa`, `Kopiera`, `Ta bort`, `Rensa klara`); change the
-strings in `mods/human/main.js` if you want another language.
 
 ## How it works
 
@@ -29,7 +30,7 @@ Agents append one JSON line per instruction to `~/.config/herdr-app/human/inbox.
 
 The mod never edits that file. What you have checked off or removed is kept in
 `~/.config/herdr-app/human/state.json`, so parallel agents can append without clashing.
-`terminal` is the agent's `HC_TERMINAL_ID`; it is how *Avvisa* finds the agent.
+`terminal` is the agent's `HC_TERMINAL_ID`; it is how *Reject* finds the agent.
 
 ## Install
 
@@ -113,7 +114,7 @@ shows up in the Human panel in Herdr. Do this in addition to writing it in chat.
 
 ## Limits
 
-- *Avvisa* and the `--wait` signal only reach an agent whose terminal is still running. If
+- *Reject* and the `--wait` signal only reach an agent whose terminal is still running. If
   it is gone, a notification says so; a rejected item then stays in the list.
 - An item whose terminal is closed or unknown is shown in every space, so nothing is lost.
 - The mod has been tried on Linux. On macOS, copying needs `pbcopy` added to `copyText()`.
