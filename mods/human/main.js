@@ -12,7 +12,8 @@
 // or unknown is always shown, so nothing is lost when a terminal closes.
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { exec, hc, appHome, readTextFile, writeTextFile, watchFolder, theme, settings, checking, props, notify, agents, focused, spaces, closeOverlay } from "herdr";
+import { exec, hc, appHome, readTextFile, writeTextFile, watchFolder, theme, settings, checking, props, notify, agents, focused, spaces, closeOverlay, nextCommand } from "herdr";
+import { newer, installedVersion, checkUpdate, setUpdateCheck, updatePrompt } from "./update.js";
 
 // A window is dragged by any press the mod doesn't stop: controls stop theirs.
 const stop = (_e, cx) => cx.stop_propagation();
@@ -97,6 +98,36 @@ export default class Human extends View {
     });
     // Relative times ("5 min") age on their own.
     cx.timer.every(60000, (cx) => cx.notify());
+    // A newer Human on GitHub (update.js): looked for now and every 6 hours; the
+    // answer is shared, so GitHub is asked at most once a day.
+    this.version = null;
+    this.latest = null;
+    this.lookForUpdate = (cx) => cx.spawn(async (cx) => {
+      try {
+        this.version ??= await installedVersion();
+        const { latest } = await checkUpdate();
+        if (latest !== this.latest) {
+          this.latest = latest;
+          cx.notify();
+        }
+      } catch (_) {}
+    });
+    this.lookForUpdate(cx);
+    cx.timer.every(6 * 3600000, (cx) => this.lookForUpdate(cx));
+    // `herdr-app do human.<command>` reaches the shown copies.
+    cx.spawn(async (cx) => {
+      for (;;) {
+        const c = await nextCommand();
+        if (c === "update-check-off") {
+          setUpdateCheck(false);
+          this.latest = null;
+          cx.notify();
+        } else if (c === "update-check-on") {
+          setUpdateCheck(true);
+          this.lookForUpdate(cx);
+        }
+      }
+    });
     // The list follows the shown space: redraw when it changes.
     cx.timer.every(1500, (cx) => {
       const now = focused()?.space ?? null;
@@ -174,6 +205,24 @@ export default class Human extends View {
       if (!s.removed.includes(item.id)) s.removed.push(item.id);
       delete s.done[item.id];
     }, cx);
+  }
+
+  /** The update banner's button: the focused agent does the update, so it reads the new files before they go in. */
+  askUpdate(cx) {
+    const agent = agents().find((a) => a.focused);
+    if (!agent) {
+      notify({ title: `Human ${this.latest}`, body: "Focus an agent's terminal and click again, or ask any agent to update the Human mod.", level: "info", timeout: 8000 });
+      return;
+    }
+    cx.spawn(async () => {
+      try {
+        const r = await hc(["send", agent.address, updatePrompt(this.latest, this.version)]);
+        if (r.code !== 0) throw new Error((r.stderr || r.stdout || `hc send ${r.code}`).trim());
+        notify({ title: "Asked the agent to update Human", body: `${this.version ?? "?"} → ${this.latest}`, level: "success", timeout: 5000 });
+      } catch (err) {
+        notify({ title: "Couldn't reach the agent", body: String(err?.message ?? err), level: "error" });
+      }
+    });
   }
 
   /** Send the task back to the agent that made it; the row goes away only if the agent got the message. */
@@ -328,6 +377,13 @@ export default class Human extends View {
           .hover((s) => s.bg(t.hover).text_color(t.foreground)).on_mouse_down("left", stop)
           .on_click(() => closeOverlay(props().overlay)).child("✕")));
 
+    // A newer version on GitHub (update.js).
+    const update = this.latest && newer(this.latest, this.version)
+      ? h_flex().flex_none().px(14).py(6).gap(8).items_center().border_b(1).border_color(t.border).bg(t.raised)
+        .child(div().flex_1().min_w(0).text_size(12).text_color(t.muted).child(`Human ${this.latest} is out (you have ${this.version ?? "?"}).`))
+        .child(button("update", "Update", (cx) => this.askUpdate(cx), true))
+      : null;
+
     let body;
     if (this.error) {
       body = div().p(12).text_size(12).text_color(t.ansi1).child(this.error);
@@ -340,6 +396,6 @@ export default class Human extends View {
     }
 
     // A window has the width and height from mod.json; a pane fills its block.
-    return v_flex().size_full().bg(t.surface).child(header).child(body);
+    return v_flex().size_full().bg(t.surface).child(header).when(Boolean(update), (el) => el.child(update)).child(body);
   }
 }

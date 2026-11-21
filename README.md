@@ -116,6 +116,16 @@ shows up in the Human panel in Herdr. Do this in addition to writing it in chat.
   `human-add --retry '<why you could not>' '<text>'`.
 ```
 
+## Updates
+
+At most once a day the mod reads `version` in this repository's `mods/human/mod.json` (one
+GET to `raw.githubusercontent.com`; nothing is sent but the request). If it is newer than
+the installed one, a banner with an **Update** button shows under the header. The button
+asks the focused agent to read the new files and replace the mod and `human-add`, run
+`herdr-app check` and tell you what changed. Nothing is updated without an agent reading it
+first. To stop the daily check: `herdr-app do human.update-check-off` (`update-check-on`
+brings it back).
+
 ## Limits
 
 - *Reject* and the `--wait` signal only reach an agent whose terminal is still running. If

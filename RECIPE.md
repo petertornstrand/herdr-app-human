@@ -75,7 +75,18 @@ Open items an agent is waiting for come first; the rest are newest first.
   `h_flex`. Only theme colors (`surface`, `raised`, `background`, `border`, `input`,
   `foreground`, `muted`, `dim`, `accent`, `accent_foreground`, `blocked`, `hover`).
 - It runs programs: `sh -c 'printf %s "$1" | <clipboard tool>'` and `hc send`. It reads and
-  writes only `~/.config/herdr-app/human/`. No network.
+  writes only `~/.config/herdr-app/human/`. Its one network call is the daily update check
+  (`update.js`, below).
+- `mods/human/update.js` (from the Blueprint mod's update check): `mod.json` carries a
+  `version`. At most once a day, one copy fetches
+  `https://raw.githubusercontent.com/petertornstrand/herdr-app-human/main/mods/human/mod.json`
+  and shares `{checked, latest, error, off}` in shared state under `human.update`; a failed
+  request is retried after an hour. If `latest` is newer (dotted numbers, junk is never
+  newer), a banner (`raised`, bottom border, 12 px `muted` text "Human X is out (you have
+  Y).", an accent `Update` button) shows under the header. The button sends the focused
+  agent a prompt to replace `mods/human` and the `human-add` script from the repo, run
+  `herdr-app check` and report the changes; with no focused agent it explains how.
+  `herdr-app do human.update-check-off` / `update-check-on` switch the check.
 - `bin/human-add` (bash, needs `jq`):
   `human-add [--project NAME] [--cmd 'command'] [--retry 'why not'] [--wait] 'text'`. It
   writes one line with `id` (`<epoch>-<8 hex>`), `ts` (UTC, ISO), the project (default: the
