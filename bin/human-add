@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Register an instruction for the human in the Herdr "Human" panel.
+#   human-add [--project NAME] [--cmd 'command to copy'] [--retry 'why the agent could not do it'] 'text'
+# Appends one JSON line to ~/.config/herdr-app/human/inbox.jsonl.
+set -euo pipefail
+
+project="" cmd="" retry="" text=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --project) project="${2:?--project needs a value}"; shift 2 ;;
+    --cmd) cmd="${2:?--cmd needs a value}"; shift 2 ;;
+    --retry) retry="${2:?--retry needs a value}"; shift 2 ;;
+    -h|--help) sed -n '2,4p' "$0" | cut -c3-; exit 0 ;;
+    --) shift; text="$*"; break ;;
+    -*) echo "human-add: unknown option $1" >&2; exit 2 ;;
+    *) text="${text:+$text }$1"; shift ;;
+  esac
+done
+[ -n "$text" ] || { echo "human-add: text is required" >&2; exit 2; }
+[ -n "$project" ] || project="$(basename "$PWD")"
+
+dir="${HERDR_APP_HOME:-$HOME/.config/herdr-app}/human"
+mkdir -p "$dir"
+id="$(date +%s)-$(head -c4 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+
+line="$(jq -cn \
+  --arg id "$id" --arg ts "$(date --iso-8601=seconds)" --arg project "$project" \
+  --arg text "$text" --arg cmd "$cmd" --arg retry "$retry" --arg terminal "${HC_TERMINAL_ID:-}" \
+  '{id:$id, ts:$ts, project:$project, text:$text}
+   + (if $cmd != "" then {cmd:$cmd} else {} end)
+   + (if $retry != "" then {retry:$retry} else {} end)
+   + (if $terminal != "" then {terminal:$terminal} else {} end)')"
+
+# One write call: lines from parallel agents don't interleave.
+printf '%s\n' "$line" >> "$dir/inbox.jsonl"
+echo "human-add: registered $id"
