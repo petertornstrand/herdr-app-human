@@ -30,7 +30,7 @@ function parseInbox(text) {
       const o = JSON.parse(line);
       if (!o || typeof o.text !== "string" || !o.id || seen.has(o.id)) continue;
       seen.add(o.id);
-      items.push({ id: String(o.id), ts: o.ts ?? null, project: o.project ?? null, text: o.text, cmd: o.cmd ?? null, retry: o.retry ?? null, terminal: o.terminal ?? null });
+      items.push({ id: String(o.id), ts: o.ts ?? null, project: o.project ?? null, text: o.text, cmd: o.cmd ?? null, retry: o.retry ?? null, terminal: o.terminal ?? null, wait: o.wait === true });
     } catch {
       // A half-written line: picked up on the next change.
     }
@@ -150,10 +150,23 @@ export default class Human extends View {
   }
 
   toggle(item, cx) {
+    const checking = !this.state.done[item.id];
     this.mutate((s) => {
       if (s.done[item.id]) delete s.done[item.id];
       else s.done[item.id] = new Date().toISOString();
     }, cx);
+    // An agent waiting for this gets told when it's done (not when it's unchecked).
+    if (checking && item.wait && item.terminal) {
+      cx.spawn(async (cx) => {
+        let ok = false;
+        try {
+          ok = (await hc(["send", item.terminal, `Done by the human: "${item.text}". Continue.`])).code === 0;
+        } catch {
+          // Reported below.
+        }
+        if (!ok) notify({ title: `The agent didn't get the news (${item.terminal})`, body: item.text, level: "warning", timeout: 5000 });
+      });
+    }
   }
 
   remove(item, cx) {
@@ -235,7 +248,7 @@ export default class Human extends View {
       const canReject = !checked && !item.retry && Boolean(item.terminal);
 
       return v_flex().flex_none().p(12).gap(8).rounded(8).border(1)
-        .border_color(item.retry && !checked ? t.blocked : t.border)
+        .border_color((item.retry || item.wait) && !checked ? t.blocked : t.border)
         .bg(checked ? t.surface : t.raised)
         // The instruction, with the box that checks it off.
         .child(h_flex().gap(10).items_start()
@@ -250,10 +263,13 @@ export default class Human extends View {
               .when(checked, (el) => el.line_through()).whitespace_normal()
               .on_mouse_down("left", stop).on_click((_e, cx) => this.copy(item, cx)).child(item.text)))
         // The command, to copy as is.
-        .when(Boolean(item.cmd), (el) =>
+        .when(Boolean(item.cmd) && !checked, (el) =>
           el.child(div().id(`cmd-${item.id}`).ml(30).px(10).py(7).rounded(6).bg(t.background).border(1).border_color(t.border)
             .font_family(settings().font_family ?? "JetBrains Mono").text_size(12).text_color(checked ? t.dim : t.foreground)
             .whitespace_normal().hover((s) => s.border_color(t.accent)).on_mouse_down("left", stop).on_click((_e, cx) => this.copy(item, cx)).child(item.cmd)))
+        .when(item.wait && !checked, (el) =>
+          el.child(div().ml(30).self_start().px(8).h(20).rounded(10).flex().items_center().text_size(11).font_semibold()
+            .border(1).border_color(t.blocked).text_color(t.blocked).child("● Agenten väntar på dig")))
         .when(Boolean(item.retry) && !checked, (el) =>
           el.child(div().ml(30).text_size(12).text_color(t.blocked).whitespace_normal().child(`Agenten kunde inte: ${item.retry}`)))
         // Where it came from, and what you can do with it.
@@ -298,14 +314,14 @@ export default class Human extends View {
 
     const header = h_flex().h(44).flex_none().px(14).items_center().gap(10).border_b(1).border_color(t.border)
       .child(div().text_size(15).font_semibold().text_color(t.foreground).child("Human"))
-      .child(div().flex_1().text_size(12).text_color(open.length ? t.blocked : t.dim).child(this.loaded
-        ? `${open.length ? `${open.length} att göra` : "inget att göra"}${!this.showAll && hidden ? ` · ${hidden} i andra spaces` : ""}`
+      .child(div().flex_1().min_w(0).truncate().text_size(12).text_color(open.length ? t.blocked : t.dim).child(this.loaded
+        ? `${open.length ? `${open.length} att göra${open.some((i) => i.wait) ? ` · ${open.filter((i) => i.wait).length} väntar på dig` : ""}` : "inget att göra"}${!this.showAll && hidden ? ` · ${hidden} i andra spaces` : ""}`
         : "Laddar…"))
       .child(button("scope", this.showAll ? "Alla spaces" : "Detta space", (cx) => {
         this.showAll = !this.showAll;
         cx.notify();
       }, this.showAll))
-      .when(done.length > 0, (el) => el.child(button("clear", "Rensa klara", (cx) => this.clearDone(cx))))
+      .when(done.length > 0, (el) => el.child(button("clear", "Rensa", (cx) => this.clearDone(cx))))
       .when(Boolean(props()?.overlay), (el) =>
         el.child(div().id("close").flex_none().size(24).rounded(4).flex().items_center().justify_center().text_size(13).text_color(t.muted)
           .hover((s) => s.bg(t.hover).text_color(t.foreground)).on_mouse_down("left", stop)

@@ -10,6 +10,11 @@ its command with a click, or reject it so the agent tries to do it itself.
 - **Avvisa** sends the task back to the agent that created it (`hc send`). The agent is told
   to do it itself, and to register it again with `--retry '<why not>'` only if it can't.
   A retried item shows the agent's reason and has no reject button.
+- An agent that can't continue until you're done registers the item with `--wait`. The card
+  gets a red border and an "Agenten väntar på dig" pill, the header counts how many wait,
+  and checking the item off sends `Done by the human: ...` to the agent's terminal, so it
+  can end its turn and wake up when you're done. Without `--wait` the agent gets no signal.
+- Checked items fold their command away.
 
 The panel text is in Swedish (`Avvisa`, `Kopiera`, `Ta bort`, `Rensa klara`); change the
 strings in `mods/human/main.js` if you want another language.
@@ -81,7 +86,7 @@ The exact variable names depend on the tab bar you cloned; read it and adapt.
 
 ## Tell your agents
 
-`human-add [--project NAME] [--cmd 'command to copy'] [--retry 'why the agent could not do it'] 'text'`
+`human-add [--project NAME] [--cmd 'command to copy'] [--retry 'why the agent could not do it'] [--wait] 'text'`
 
 Add something like this to the instructions your agents read (`CLAUDE.md`, `AGENTS.md`):
 
@@ -96,6 +101,9 @@ shows up in the Human panel in Herdr. Do this in addition to writing it in chat.
   `human-add --project <project> --cmd '<command>' '<short instruction>'`.
   `--cmd` is only for something I can copy and run as is.
 - Keep the text to one line. Don't register things you only tell me for information.
+- Add `--wait` only when you cannot continue until I've done it. Then end your turn; a
+  message "Done by the human: ..." arrives in your terminal when I check it off. Without
+  `--wait` you get no signal.
 - Never check items off yourself. Only I do that, in the panel.
 - If you can do the thing yourself, do it instead of registering it.
 - If I reject an item, a message arrives in your terminal: "Rejected by the human: ...".
@@ -105,8 +113,8 @@ shows up in the Human panel in Herdr. Do this in addition to writing it in chat.
 
 ## Limits
 
-- *Avvisa* only reaches an agent whose terminal is still running. If it is gone, a
-  notification says so and the item stays.
+- *Avvisa* and the `--wait` signal only reach an agent whose terminal is still running. If
+  it is gone, a notification says so; a rejected item then stays in the list.
 - An item whose terminal is closed or unknown is shown in every space, so nothing is lost.
 - The mod has been tried on Linux. On macOS, copying needs `pbcopy` added to `copyText()`.
 
