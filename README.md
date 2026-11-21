@@ -89,7 +89,10 @@ The exact variable names depend on the tab bar you cloned; read it and adapt.
 
 `human-add [--project NAME] [--cmd 'command to copy'] [--retry 'why the agent could not do it'] [--wait] 'text'`
 
-Add something like this to the instructions your agents read (`CLAUDE.md`, `AGENTS.md`):
+Add something like this to the instructions your agents read (`CLAUDE.md`, `AGENTS.md`, or
+whatever your agent tool uses). Without it, agents never call `human-add`. The panel's own
+text is English, but the instruction text is whatever the agent writes: say "in Swedish" (or
+your language) after "short instruction" if you want it that way.
 
 ```markdown
 ## Instructions to the human
