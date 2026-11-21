@@ -60,7 +60,7 @@ function ago(ts) {
 
 async function copyText(text) {
   // exec has no stdin: the text goes in as $1.
-  for (const tool of ["wl-copy", "xclip -selection clipboard", "xsel --clipboard --input"]) {
+  for (const tool of ["pbcopy", "wl-copy", "xclip -selection clipboard", "xsel --clipboard --input"]) {
     try {
       const r = await exec("sh", ["-c", `printf %s "$1" | ${tool}`, "sh", text], { timeout: 3000 });
       if (r.code === 0) return true;

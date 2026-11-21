@@ -34,8 +34,9 @@ The mod never edits that file. What you have checked off or removed is kept in
 
 ## Install
 
-Needs the Herdr desktop app, `jq` for `human-add`, and `wl-copy`, `xclip` or `xsel` for
-copying.
+Needs the Herdr desktop app and `jq` for `human-add` (`brew install jq` on macOS). Copying
+uses `pbcopy` on macOS, and `wl-copy`, `xclip` or `xsel` on Linux. `~/.local/bin` must be on
+your `PATH` for `human-add`, or install it somewhere that is.
 
 ```sh
 git clone https://github.com/petertornstrand/herdr-app-human
@@ -120,7 +121,9 @@ shows up in the Human panel in Herdr. Do this in addition to writing it in chat.
 - *Reject* and the `--wait` signal only reach an agent whose terminal is still running. If
   it is gone, a notification says so; a rejected item then stays in the list.
 - An item whose terminal is closed or unknown is shown in every space, so nothing is lost.
-- The mod has been tried on Linux. On macOS, copying needs `pbcopy` added to `copyText()`.
+- The mod and `human-add` are written to work on Linux and macOS, but only Linux has been
+  tried. `human-add` uses nothing GNU-specific, and copying tries `pbcopy`, `wl-copy`,
+  `xclip` and `xsel` in turn. Windows is not supported (`human-add` is a bash script).
 
 ## License
 

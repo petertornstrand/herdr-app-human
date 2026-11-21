@@ -26,7 +26,7 @@ mkdir -p "$dir"
 id="$(date +%s)-$(head -c4 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 
 line="$(jq -cn \
-  --arg id "$id" --arg ts "$(date --iso-8601=seconds)" --arg project "$project" \
+  --arg id "$id" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg project "$project" \
   --arg text "$text" --arg cmd "$cmd" --arg retry "$retry" --arg terminal "${HC_TERMINAL_ID:-}" --arg wait "$wait" \
   '{id:$id, ts:$ts, project:$project, text:$text}
    + (if $cmd != "" then {cmd:$cmd} else {} end)
