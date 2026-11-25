@@ -91,6 +91,11 @@ Open items an agent is waiting for come first; the rest are newest first.
   `human-add [--project NAME] [--cmd 'command'] [--retry 'why not'] [--wait] 'text'`. It
   writes one line with `id` (`<epoch>-<8 hex>`), `ts` (UTC, ISO), the project (default: the
   current folder's name), and `terminal` from `$HC_TERMINAL_ID`, in a single `>>` append.
+- `bin/human-remove` (bash, needs `jq`): `human-remove --list` prints the open items (id,
+  project, text; newest first), `human-remove <id>...` prints each text and adds the ids to
+  `removed` in `state.json` (written to a temp file in the same folder, then moved over it; it
+  refuses to write an empty file). It never marks an item done and never touches `inbox.jsonl`.
+  For agents to clean up items of their own that became obsolete.
 - In a layout: a hidden block `{ "id": "human-panel", "type": "block", "hidden": true,
   "size": { "px": 360 }, "min": 280, "max": 700, "content": { "mod": "human" } }` next to the
   side panel, and a tab bar button that runs `layout.show` / `layout.hide` with that id.

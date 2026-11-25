@@ -42,6 +42,7 @@ your `PATH` for `human-add`, or install it somewhere that is.
 git clone https://github.com/petertornstrand/herdr-app-human
 cp -r herdr-app-human/mods/human ~/.config/herdr-app/mods/human
 install -m 755 herdr-app-human/bin/human-add ~/.local/bin/human-add
+install -m 755 herdr-app-human/bin/human-remove ~/.local/bin/human-remove
 herdr-app check ~/.config/herdr-app/mods/human
 ```
 
@@ -116,12 +117,27 @@ shows up in the Human panel in Herdr. Do this in addition to writing it in chat.
   `human-add --retry '<why you could not>' '<text>'`.
 ```
 
+## Removing obsolete items
+
+`human-remove --list` shows the open items (id, project, text), newest first.
+`human-remove <id> [<id> ...]` prints each text and then hides the items, like *Remove* in the
+panel. It never checks anything off: it only adds the ids to `removed` in `state.json`, and
+the panel picks the change up. It is meant for an agent that registered an item which has
+since been replaced or is no longer needed. To allow it, add a line like this to the
+instructions above:
+
+```markdown
+- You may remove (not check off) items you registered yourself that have become obsolete,
+  for example ones replaced by a newer item, with `human-remove <id>`. Never remove an item
+  I registered or one that still waits on me.
+```
+
 ## Updates
 
 At most once a day the mod reads `version` in this repository's `mods/human/mod.json` (one
 GET to `raw.githubusercontent.com`; nothing is sent but the request). If it is newer than
 the installed one, a banner with an **Update** button shows under the header. The button
-asks the focused agent to read the new files and replace the mod and `human-add`, run
+asks the focused agent to read the new files and replace the mod, `human-add` and `human-remove`, run
 `herdr-app check` and tell you what changed. Nothing is updated without an agent reading it
 first. To stop the daily check: `herdr-app do human.update-check-off` (`update-check-on`
 brings it back).

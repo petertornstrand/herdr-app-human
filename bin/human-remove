@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Remove obsolete items from the Herdr "Human" panel (never checks anything off).
+#   human-remove --list            show open items (id, project, text), newest first
+#   human-remove <id> [<id> ...]   remove items; prints each text first
+# Only for items an agent registered itself that became obsolete (superseded or
+# no longer needed). Checking off stays with the human. Adds the ids to
+# "removed" in ~/.config/herdr-app/human/state.json; the panel merges the change.
+set -euo pipefail
+
+dir="${HERDR_APP_HOME:-$HOME/.config/herdr-app}/human"
+inbox="$dir/inbox.jsonl"
+state="$dir/state.json"
+[ -f "$inbox" ] || { echo "human-remove: no inbox at $inbox" >&2; exit 1; }
+[ -f "$state" ] || echo '{"done":{},"removed":[]}' > "$state"
+
+if [ "${1:-}" = "--list" ]; then
+  jq -rn --slurpfile s "$state" --slurpfile i <(jq -c . "$inbox") '
+    ($s[0].removed // []) as $r | ($s[0].done // {}) as $d
+    | [$i[] | select(.id as $id | ($r | index($id) | not) and ($d[$id] | not))]
+    | reverse | .[] | [.id, .project, .text[0:90]] | @tsv'
+  exit 0
+fi
+
+[ $# -gt 0 ] || { sed -n '2,7p' "$0" | cut -c3-; exit 2; }
+
+for id in "$@"; do
+  text="$(jq -r --arg id "$id" 'select(.id == $id) | .text' "$inbox")"
+  [ -n "$text" ] || { echo "human-remove: unknown id $id" >&2; exit 1; }
+  echo "removing $id: $text"
+done
+
+ids="$(printf '%s\n' "$@" | jq -R . | jq -sc .)"
+tmp="$(mktemp "$dir/.state.XXXXXX")"
+trap 'rm -f "$tmp"' EXIT
+jq --argjson ids "$ids" '.removed = ((.removed // []) + $ids | unique)' "$state" > "$tmp"
+[ -s "$tmp" ] || { echo "human-remove: refusing to write an empty state file" >&2; exit 1; }
+chmod 600 "$tmp"
+mv "$tmp" "$state"
